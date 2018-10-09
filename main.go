@@ -20,7 +20,7 @@ func setupRouter() *gin.Engine {
 		c.String(http.StatusOK, "pong")
 	})
 
-	r.GET("/players", controller.GetPlayers)
+	r.GET("/players/:code1/:code2", controller.ComparePlayers)
 
 	// Get user value
 	r.GET("/user/:name", func(c *gin.Context) {
