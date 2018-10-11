@@ -6,5 +6,4 @@
     "DbURI": "root:Iil1Eshee]@tcp(localhost:3306)/go",
     "IsDebug": true,
     "Resources" : "/home/yulia/go/src/parser/static/"
-
 }

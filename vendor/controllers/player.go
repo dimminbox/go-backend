@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	model "model"
 	"time"
 
@@ -36,36 +35,101 @@ func progressPlayers(c *gin.Context, code1 string, code2 string) {
 
 }
 
+type Form struct {
+	All  int
+	Win  int
+	Lose int
+}
+type FormMounth struct {
+	Month     string
+	Statistic map[int]Form
+}
+type Forms map[string]map[int]Form
+
 // данные по форме игроков за определённый период
 func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) {
 
-	/*fmt.Println(date2.Format(time.UnRFC822ixDate))
-	fmt.Println(date1.Format(time.RFC822))*/
-	//then, err := time.Parse("2006-01-02 15:04 MST", "2014-05-03 20:57 UTC")
+	results := []FormMounth{}
 
-	fmt.Println(date2.Format("2006-01-02 15:04"))
-	/*then, err := time.Parse("2006-02-02 15:04 MST", date2.Format("2006-01-02 15:04"))
+	win := 0
+	lose := 0
+	all := 0
 
-	if err != nil {
-		fmt.Println(err)
-		return
-	}*/
 	for date1.Unix() < date2.Unix() {
 
-		var games []model.Game
-
+		var games1 []model.Game
+		var games2 []model.Game
+		var month string
 		startDate := date1
 		date1 = date1.AddDate(0, 1, 0)
 
+		month = date1.Month().String()
+		resByMonth := map[int]Form{}
+
+		win = 0
+		lose = 0
+		all = 0
+
 		model.Connect.
-			Where("player1 = ? or player2 = ?", player1, player2).
+			Where("player1 = ? or player2 = ?", player1, player1).
 			Where("dateEvent < ?", date1).
 			Where("dateEvent > ?", startDate).
-			Find(&games)
+			Find(&games1)
+		for _, game := range games1 {
 
-		fmt.Println(date1.Month().String())
+			if game.Player1 == player1 {
+				win++
+			} else {
+				lose++
+			}
+			all++
+
+			resByMonth[player1] = Form{
+				All:  all,
+				Win:  win,
+				Lose: lose,
+			}
+		}
+
+		win = 0
+		lose = 0
+		all = 0
+
+		model.Connect.
+			Where("player1 = ? or player2 = ?", player2, player2).
+			Where("dateEvent < ?", date1).
+			Where("dateEvent > ?", startDate).
+			Find(&games2)
+
+		for _, game := range games2 {
+
+			if game.Player1 == player2 {
+				win++
+			} else {
+				lose++
+			}
+			all++
+
+			resByMonth[player2] = Form{
+				All:  all,
+				Win:  win,
+				Lose: lose,
+			}
+		}
+		result := FormMounth{
+			Month:     month,
+			Statistic: resByMonth,
+		}
+
+		results = append(results, result)
 
 	}
+	//str, _ := json.Marshal(results)
+	//c.JSON(200, c.BindJSON(results))
+	//fmt.Printf("%+v", c.BindJSON(results))
+	//c.BindJSON(results)
+
+	c.JSON(200, results)
 	/*fmt.Println(date2.Month().String())
 	fmt.Println(date2.Sub(date1).Hours())*/
 
