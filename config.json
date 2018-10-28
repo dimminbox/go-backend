@@ -3,7 +3,7 @@
     "Host": "localhost",
     "User": "root",
     "Password": "u9yIITHNQ",
-    "DbURI": "root:Iil1Eshee]@tcp(localhost:3306)/go",
+    "DbURI": "root:Iil1Eshee]@tcp(localhost:3306)/goTennis",
     "IsDebug": true,
     "Resources" : "/home/yulia/go/src/parser/static/"
 }

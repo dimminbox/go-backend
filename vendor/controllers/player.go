@@ -9,6 +9,7 @@ import (
 
 func ComparePlayers(c *gin.Context) {
 
+	result := Compare{}
 	model.InitDB()
 
 	code1 := c.Params.ByName("code1")
@@ -23,16 +24,43 @@ func ComparePlayers(c *gin.Context) {
 
 		dateEnd := time.Now()
 		dateStart := dateEnd.AddDate(0, -6, 0)
-		formPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
+		result.Forms = formPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
+		result.Progress = progressPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 
 	}
 
-	//c.JSON(200, players)
+	c.JSON(200, result)
 }
 
 // данные по прогрессу игроков за последний год
-func progressPlayers(c *gin.Context, code1 string, code2 string) {
+func progressPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) (results []Progress) {
 
+	var ratings []model.Rating
+	model.Connect.
+		Where("player = ? or player = ?", player1, player2).
+		Where("dateUpdate > ?", date1).
+		Where("dateUpdate < ?", date2).
+		Find(&ratings)
+
+	for _, rating := range ratings {
+
+		_result := Progress{
+			Date: rating.DateUpdate,
+		}
+		if len(_result.Data) == 0 {
+			_result.Data = map[int]int{}
+		}
+		if rating.Player == player1 {
+			_result.Data[0] = rating.Position
+		}
+		if rating.Player == player2 {
+			_result.Data[1] = rating.Position
+		}
+
+		results = append(results, _result)
+	}
+
+	return
 }
 
 type Form struct {
@@ -40,16 +68,26 @@ type Form struct {
 	Win  int
 	Lose int
 }
+
 type FormMounth struct {
 	Month     string
 	Statistic map[int]Form
 }
+
+type Progress struct {
+	Date string
+	Data map[int]int
+}
+
 type Forms map[string]map[int]Form
 
-// данные по форме игроков за определённый период
-func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) {
+type Compare struct {
+	Forms    []FormMounth
+	Progress []Progress
+}
 
-	results := []FormMounth{}
+// данные по форме игроков за определённый период
+func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) (results []FormMounth) {
 
 	win := 0
 	lose := 0
@@ -129,7 +167,7 @@ func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date
 	//fmt.Printf("%+v", c.BindJSON(results))
 	//c.BindJSON(results)
 
-	c.JSON(200, results)
+	return results
 	/*fmt.Println(date2.Month().String())
 	fmt.Println(date2.Sub(date1).Hours())*/
 
