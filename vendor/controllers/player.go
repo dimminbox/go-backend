@@ -7,6 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Compare struct {
+	Players  []model.Player
+	Forms    []FormMounth
+	Progress []Progress
+}
+
 func ComparePlayers(c *gin.Context) {
 
 	result := Compare{}
@@ -22,6 +28,8 @@ func ComparePlayers(c *gin.Context) {
 
 	if player1.ID > 0 && player2.ID > 0 {
 
+		result.Players = append(result.Players, player1)
+		result.Players = append(result.Players, player2)
 		dateEnd := time.Now()
 		dateStart := dateEnd.AddDate(0, -6, 0)
 		result.Forms = formPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
@@ -30,6 +38,11 @@ func ComparePlayers(c *gin.Context) {
 	}
 
 	c.JSON(200, result)
+}
+
+type Progress struct {
+	Date string
+	Data map[int]int
 }
 
 // данные по прогрессу игроков за последний год
@@ -84,18 +97,7 @@ type FormMounth struct {
 	Month     string
 	Statistic map[int]Form
 }
-
-type Progress struct {
-	Date string
-	Data map[int]int
-}
-
 type Forms map[string]map[int]Form
-
-type Compare struct {
-	Forms    []FormMounth
-	Progress []Progress
-}
 
 // данные по форме игроков за определённый период
 func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) (results []FormMounth) {
