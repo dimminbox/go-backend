@@ -36,28 +36,39 @@ func ComparePlayers(c *gin.Context) {
 func progressPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) (results []Progress) {
 
 	var ratings []model.Rating
+
 	model.Connect.
 		Where("player = ? or player = ?", player1, player2).
 		Where("dateUpdate > ?", date1).
 		Where("dateUpdate < ?", date2).
+		Order("dateUpdate ASC").
 		Find(&ratings)
 
+	var dateUpdate string
+	var _result Progress
 	for _, rating := range ratings {
 
-		_result := Progress{
-			Date: rating.DateUpdate,
-		}
-		if len(_result.Data) == 0 {
-			_result.Data = map[int]int{}
-		}
-		if rating.Player == player1 {
-			_result.Data[0] = rating.Position
-		}
-		if rating.Player == player2 {
-			_result.Data[1] = rating.Position
+		if dateUpdate != rating.DateUpdate {
+
+			if _result.Date != "" {
+				results = append(results, _result)
+			}
+			dateUpdate = rating.DateUpdate
+			_result = Progress{
+				Date: dateUpdate,
+				Data: map[int]int{},
+			}
+
 		}
 
-		results = append(results, _result)
+		if _result.Date != "" {
+			if rating.Player == player1 {
+				_result.Data[0] = rating.Position
+			}
+			if rating.Player == player2 {
+				_result.Data[1] = rating.Position
+			}
+		}
 	}
 
 	return
@@ -162,10 +173,6 @@ func formPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date
 		results = append(results, result)
 
 	}
-	//str, _ := json.Marshal(results)
-	//c.JSON(200, c.BindJSON(results))
-	//fmt.Printf("%+v", c.BindJSON(results))
-	//c.BindJSON(results)
 
 	return results
 	/*fmt.Println(date2.Month().String())
