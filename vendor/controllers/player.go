@@ -1,16 +1,124 @@
 package controller
 
 import (
+	"fmt"
 	model "model"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+type Surface struct {
+	Surface     string
+	Won1        int
+	Won2        int
+	All1        int
+	All2        int
+	AllSurface1 int
+	AllSurface2 int
+	Use1        int
+	Use2        int
+	Title1      int
+	Title2      int
+}
+
+func surfacePlayers(c *gin.Context, player1 int, player2 int) (surfaces []Surface) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in f", r)
+		}
+	}()
+
+	var tournaments []model.Tournament
+	surfaceToTournir := map[string][]int{}
+
+	model.Connect.Select("id, surface").Find(&tournaments)
+	for _, tournir := range tournaments {
+		if tournir.Surface != "" {
+			if _, ok := surfaceToTournir[tournir.Surface]; ok {
+				surfaceToTournir[tournir.Surface] = append(surfaceToTournir[tournir.Surface], tournir.ID)
+			} else {
+				surfaceToTournir[tournir.Surface] = []int{tournir.ID}
+			}
+		}
+	}
+
+	for surfaceName, tournirs := range surfaceToTournir {
+
+		var all1 int
+		var all2 int
+		var count1Win int
+		var count2Win int
+		var all1Surface int
+		var all2Surface int
+		var title1 int
+		var title2 int
+
+		var games []model.Game
+
+		model.Connect.Where("player1 = ? or player2 = ?", player1, player1).
+			Find(&games).
+			Count(&all1)
+
+		model.Connect.Where("player1 = ? or player2 = ?", player2, player2).
+			Find(&games).
+			Count(&all2)
+
+		model.Connect.Where("player1 = ?", player1).
+			Where("tournir IN (?)", tournirs).
+			Find(&games).
+			Count(&count1Win)
+
+		model.Connect.Where("player1 = ?", player2).
+			Where("tournir IN (?)", tournirs).
+			Find(&games).
+			Count(&count2Win)
+
+		model.Connect.Where("player1 = ? or player2 = ?", player1, player1).
+			Where("tournir IN (?)", tournirs).
+			Find(&games).
+			Count(&all1Surface)
+
+		model.Connect.Where("player1 = ? or player2 = ?", player2, player2).
+			Where("tournir IN (?)", tournirs).
+			Find(&games).
+			Count(&all2Surface)
+
+		model.Connect.Where("player1 = ?", player1).
+			Where("stage = 'Finals'").
+			Find(&games).
+			Count(&title1)
+
+		model.Connect.Where("player1 = ?", player2).
+			Where("stage = 'Finals'").
+			Find(&games).
+			Count(&title2)
+
+		surface := Surface{
+			Surface:     surfaceName,
+			All1:        all1,
+			All2:        all2,
+			AllSurface1: all1Surface,
+			AllSurface2: all2Surface,
+			Won1:        count1Win,
+			Won2:        count2Win,
+			Title1:      title1,
+			Title2:      title2,
+		}
+		surfaces = append(surfaces, surface)
+
+	}
+
+	return surfaces
+
+}
+
 type Compare struct {
 	Players  []model.Player
 	Forms    []FormMounth
 	Progress []Progress
+	Surface  []Surface
 }
 
 func ComparePlayers(c *gin.Context) {
@@ -34,6 +142,7 @@ func ComparePlayers(c *gin.Context) {
 		dateStart := dateEnd.AddDate(0, -6, 0)
 		result.Forms = formPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 		result.Progress = progressPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
+		result.Surface = surfacePlayers(c, player1.ID, player2.ID)
 
 	}
 
