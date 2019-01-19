@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"math"
 	model "model"
 	"strings"
 	"time"
@@ -121,6 +122,7 @@ type Compare struct {
 	Progress   []Progress
 	Surface    []Surface
 	HeadToHead []HeadToHead
+	Technic    Technic
 }
 
 func ComparePlayers(c *gin.Context) {
@@ -146,6 +148,10 @@ func ComparePlayers(c *gin.Context) {
 		result.Progress = progressPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 		result.Surface = surfacePlayers(c, player1.ID, player2.ID)
 		result.HeadToHead = headToHead(c, player1, player2)
+
+		dateEnd = time.Now()
+		dateStart = dateEnd.AddDate(0, -1, 0)
+		result.Technic = technicPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 
 	}
 
@@ -221,6 +227,90 @@ func headToHead(c *gin.Context, player1 model.Player, player2 model.Player) (res
 				results[i].Tournament = fmt.Sprintf("%s %s %s", tournir.Name, tournir.Type, tournir.Surface)
 			}
 		}
+	}
+	return
+}
+
+type Technic struct {
+	QualityServe1 int /*разница между ейсами и двойными ошибками*/
+	QualityServe2 int
+	Serve1        float64 /*процент первой подачи*/
+	Serve2        float64
+	AvgServeWon1  float64 /*процент выигранных мячей на подаче*/
+	AvgServeWon2  float64
+	AvgReturnWon1 float64 /*процент выигранных мячей на приёме */
+	AvgReturnWon2 float64
+}
+
+func technicPlayers(c *gin.Context, player1 int, player2 int, date1 time.Time, date2 time.Time) (result Technic) {
+
+	result1 := getTechnicPlayer(player1, date1, date2)
+	result2 := getTechnicPlayer(player2, date1, date2)
+
+	result = Technic{
+		Serve1:        result1.Serve1,
+		Serve2:        result2.Serve1,
+		QualityServe1: result1.QualityServe1,
+		QualityServe2: result2.QualityServe1,
+		AvgServeWon1:  result1.AvgReturnWon1,
+		AvgServeWon2:  result2.AvgReturnWon1,
+		AvgReturnWon1: result1.AvgReturnWon1,
+		AvgReturnWon2: result2.AvgReturnWon1,
+	}
+
+	return
+
+}
+
+func getTechnicPlayer(player int, date1 time.Time, date2 time.Time) (result Technic) {
+
+	var games []model.Game
+	model.Connect.
+		Where("player1 = ? or player1 = ?", player, player).
+		Where("dateEvent < ?", date1).
+		Where("dateEvent > ?", date2).
+		Find(&games)
+
+	serve := []int{}
+	avgServe := []int{}
+	avgReturn := []int{}
+	for _, game := range games {
+
+		if game.Player1 == player {
+			result.QualityServe1 += game.Aces1 - game.DoubleFaults1
+			serve = append(serve, game.Serve1)
+			avgServe = append(avgServe, game.Serve1PointsWon1)
+			avgReturn = append(avgReturn, game.Serve1ReturnPointsWon1)
+		}
+
+		if game.Player2 == player {
+			result.QualityServe1 += game.Aces2 - game.DoubleFaults2
+			serve = append(serve, game.Serve2)
+			avgServe = append(avgServe, game.Serve1PointsWon2)
+			avgReturn = append(avgReturn, game.Serve1ReturnPointsWon2)
+		}
+
+	}
+
+	for _, _serve := range serve {
+		result.Serve1 = result.Serve1 + float64(_serve)
+	}
+	if len(serve) > 0 {
+		result.Serve1 = math.Round(result.Serve1/float64(len(serve))) * 100
+	}
+
+	for _, _avgServe := range avgServe {
+		result.Serve1 = result.Serve1 + float64(_avgServe)
+	}
+	if len(avgServe) > 0 {
+		result.AvgServeWon1 = math.Round(result.AvgServeWon1/float64(len(avgServe))) * 100
+	}
+
+	for _, _avgReturn := range avgReturn {
+		result.AvgReturnWon1 = result.AvgReturnWon1 + float64(_avgReturn)
+	}
+	if len(avgReturn) > 0 {
+		result.AvgReturnWon1 = math.Round(result.AvgReturnWon1/float64(len(avgReturn))) * 100
 	}
 
 	return
