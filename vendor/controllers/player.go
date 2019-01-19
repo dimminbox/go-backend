@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	model "model"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -115,10 +116,11 @@ func surfacePlayers(c *gin.Context, player1 int, player2 int) (surfaces []Surfac
 }
 
 type Compare struct {
-	Players  []model.Player
-	Forms    []FormMounth
-	Progress []Progress
-	Surface  []Surface
+	Players    []model.Player
+	Forms      []FormMounth
+	Progress   []Progress
+	Surface    []Surface
+	HeadToHead []HeadToHead
 }
 
 func ComparePlayers(c *gin.Context) {
@@ -143,10 +145,85 @@ func ComparePlayers(c *gin.Context) {
 		result.Forms = formPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 		result.Progress = progressPlayers(c, player1.ID, player2.ID, dateStart, dateEnd)
 		result.Surface = surfacePlayers(c, player1.ID, player2.ID)
+		result.HeadToHead = headToHead(c, player1, player2)
 
 	}
 
 	c.JSON(200, result)
+}
+
+type Score struct {
+	score1 int
+	score2 int
+}
+type HeadToHead struct {
+	Date         string
+	Tournament   string
+	Stage        string
+	Score        []string
+	Winner       string
+	TournamentID int
+}
+
+func headToHead(c *gin.Context, player1 model.Player, player2 model.Player) (results []HeadToHead) {
+
+	tournamenentIDs := []int{}
+	var games1 []model.Game
+
+	model.Connect.
+		Where("player1 = ?", player1.ID).
+		Where("player2 = ?", player2.ID).
+		Find(&games1)
+
+	for _, game := range games1 {
+
+		result := HeadToHead{
+			Date:         game.DateEvent,
+			Stage:        game.Stage,
+			Score:        strings.Split(game.Scores, ";"),
+			Winner:       player1.Name,
+			TournamentID: game.Tournir,
+		}
+
+		tournamenentIDs = append(tournamenentIDs, game.Tournir)
+		results = append(results, result)
+	}
+
+	var games2 []model.Game
+
+	model.Connect.
+		Where("player2 = ?", player1.ID).
+		Where("player1 = ?", player2.ID).
+		Find(&games2)
+
+	for _, game := range games2 {
+
+		result := HeadToHead{
+			Date:         game.DateEvent,
+			Stage:        game.Stage,
+			Score:        strings.Split(game.Scores, ";"),
+			Winner:       player2.Name,
+			TournamentID: game.Tournir,
+		}
+
+		tournamenentIDs = append(tournamenentIDs, game.Tournir)
+		results = append(results, result)
+	}
+
+	var tournirs []model.Tournament
+	model.Connect.
+		Where("ID IN (?)", tournamenentIDs).
+		Find(&tournirs)
+
+	for i, result := range results {
+		for _, tournir := range tournirs {
+			if tournir.ID == result.TournamentID {
+				results[i].Tournament = fmt.Sprintf("%s %s %s", tournir.Name, tournir.Type, tournir.Surface)
+			}
+		}
+	}
+
+	return
 }
 
 type Progress struct {
